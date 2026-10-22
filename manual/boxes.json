@@ -1,0 +1,268 @@
+{
+ "shot": {
+  "width": 412,
+  "height": 915
+ },
+ "banner": {
+  "x": 0,
+  "y": 0,
+  "width": 412,
+  "height": 64.046875
+ },
+ "core": {
+  "x": 0,
+  "y": 64.046875,
+  "width": 412,
+  "height": 116
+ },
+ "prev": {
+  "x": 8,
+  "y": 186.046875,
+  "width": 86.359375,
+  "height": 72.921875
+ },
+ "title": {
+  "x": 102.359375,
+  "y": 186.046875,
+  "width": 207.265625,
+  "height": 72.921875
+ },
+ "next": {
+  "x": 317.625,
+  "y": 186.046875,
+  "width": 86.359375,
+  "height": 72.921875
+ },
+ "stage": {
+  "x": 0,
+  "y": 266.96875,
+  "width": 412,
+  "height": 648.03125
+ },
+ "gear": {
+  "x": 368,
+  "y": 14.015625,
+  "width": 36,
+  "height": 36
+ },
+ "snack": {
+  "x": 8,
+  "y": 274.96875,
+  "width": 93,
+  "height": 205.34375
+ },
+ "lit": {
+  "x": 210,
+  "y": 488.3125,
+  "width": 93,
+  "height": 205.34375
+ },
+ "s_tools": {
+  "x": 20,
+  "y": 80,
+  "width": 560,
+  "height": 148.1875,
+  "sheetW": 600,
+  "sheetH": 5353.375
+ },
+ "s_voice": {
+  "x": 20,
+  "y": 278.1875,
+  "width": 560,
+  "height": 448,
+  "sheetW": 600,
+  "sheetH": 5353.375
+ },
+ "s_speed": {
+  "x": 22,
+  "y": 882.875,
+  "width": 560,
+  "height": 32,
+  "sheetW": 600,
+  "sheetH": 5353.375
+ },
+ "s_vol": {
+  "x": 22,
+  "y": 958.875,
+  "width": 560,
+  "height": 32,
+  "sheetW": 600,
+  "sheetH": 5353.375
+ },
+ "s_loud": {
+  "x": 20,
+  "y": 1008.875,
+  "width": 560,
+  "height": 62,
+  "sheetW": 600,
+  "sheetH": 5353.375
+ },
+ "s_pages": {
+  "x": 20,
+  "y": 1092.875,
+  "width": 560,
+  "height": 428,
+  "sheetW": 600,
+  "sheetH": 5353.375
+ },
+ "s_find": {
+  "x": 20,
+  "y": 1542.875,
+  "width": 560,
+  "height": 77,
+  "sheetW": 600,
+  "sheetH": 5353.375
+ },
+ "s_swipe": {
+  "x": 20,
+  "y": 1675.875,
+  "width": 560,
+  "height": 52,
+  "sheetW": 600,
+  "sheetH": 5353.375
+ },
+ "s_stickers": {
+  "x": 20,
+  "y": 1749.875,
+  "width": 560,
+  "height": 145.53125,
+  "sheetW": 600,
+  "sheetH": 5353.375
+ },
+ "s_scan": {
+  "x": 20,
+  "y": 1917.40625,
+  "width": 560,
+  "height": 90,
+  "sheetW": 600,
+  "sheetH": 5353.375
+ },
+ "s_fx": {
+  "x": 20,
+  "y": 2057.40625,
+  "width": 560,
+  "height": 163,
+  "sheetW": 600,
+  "sheetH": 5353.375
+ },
+ "s_calm": {
+  "x": 20,
+  "y": 2228.40625,
+  "width": 560,
+  "height": 81,
+  "sheetW": 600,
+  "sheetH": 5353.375
+ },
+ "s_big": {
+  "x": 20,
+  "y": 2359.40625,
+  "width": 560,
+  "height": 62,
+  "sheetW": 600,
+  "sheetH": 5353.375
+ },
+ "s_strong": {
+  "x": 20,
+  "y": 2429.40625,
+  "width": 560,
+  "height": 62,
+  "sheetW": 600,
+  "sheetH": 5353.375
+ },
+ "s_sent": {
+  "x": 20,
+  "y": 2513.40625,
+  "width": 560,
+  "height": 357,
+  "sheetW": 600,
+  "sheetH": 5353.375
+ },
+ "s_visits": {
+  "x": 20,
+  "y": 2892.40625,
+  "width": 560,
+  "height": 205.6875,
+  "sheetW": 600,
+  "sheetH": 5353.375
+ },
+ "s_screen": {
+  "x": 20,
+  "y": 3120.09375,
+  "width": 560,
+  "height": 257.84375,
+  "sheetW": 600,
+  "sheetH": 5353.375
+ },
+ "s_own": {
+  "x": 20,
+  "y": 3399.9375,
+  "width": 560,
+  "height": 20,
+  "sheetW": 600,
+  "sheetH": 5353.375
+ },
+ "s_ownbtn": {
+  "x": 20,
+  "y": 3494.46875,
+  "width": 560,
+  "height": 169,
+  "sheetW": 600,
+  "sheetH": 5353.375
+ },
+ "s_backup": {
+  "x": 20,
+  "y": 3706.3125,
+  "width": 560,
+  "height": 51,
+  "sheetW": 600,
+  "sheetH": 5353.375
+ },
+ "s_counts": {
+  "x": 20,
+  "y": 3845,
+  "width": 560,
+  "height": 560.84375,
+  "sheetW": 600,
+  "sheetH": 5353.375
+ },
+ "s_counton": {
+  "x": 20,
+  "y": 4417.84375,
+  "width": 560,
+  "height": 266,
+  "sheetW": 600,
+  "sheetH": 5353.375
+ },
+ "s_status": {
+  "x": 20,
+  "y": 4747.84375,
+  "width": 560,
+  "height": 35,
+  "sheetW": 600,
+  "sheetH": 5353.375
+ },
+ "s_update": {
+  "x": 20,
+  "y": 4832.84375,
+  "width": 560,
+  "height": 47,
+  "sheetW": 600,
+  "sheetH": 5353.375
+ },
+ "s_links": {
+  "x": 20,
+  "y": 5029.375,
+  "width": 560,
+  "height": 245,
+  "sheetW": 600,
+  "sheetH": 5353.375
+ },
+ "s_done": {
+  "x": 20,
+  "y": 5284.375,
+  "width": 560,
+  "height": 49,
+  "sheetW": 600,
+  "sheetH": 5353.375
+ }
+}

@@ -1,0 +1,523 @@
+#!/usr/bin/env python3
+"""Build Talanoa's pictures, natural voices and offline file list.
+
+Run from the repo root after changing library.js:
+
+    python3 tools/build.py
+
+What it does
+  0. Checks library.js and stops with a message if something is wrong
+     (a typo, a Dad tile without its Mom tile underneath, ABC not the
+     last page, a photo that isn't uploaded).
+  1. Pictures: copies the 3D Fluent Emoji image for every icon in
+     library.js into img/ (downloaded once from npm, MIT licence),
+     remakes the home-screen icons in icons/, and the shortcuts shown
+     when the app's icon is held (SHORTCUT_PAGES, in the manifest).
+  2. Voices:   records every phrase with each natural voice below using
+     Kokoro (open-source, Apache 2.0), saved as small MP3s in voices/.
+     Only new or changed phrases are recorded again.
+  3. Writes assets.js (what the app loads) and each voice's
+     abc/words.json (the ABC page's words).
+  4. Remakes the staff guide page, manual/index.html (tools/manual.py).
+  5. Writes sw.js (the offline cache): the app, its pictures and the
+     staff guide. (--offline-list does only this step.)
+
+One-time setup (about 400 MB of downloads, into ~/.cache/tilertalker):
+    pip install kokoro-onnx soundfile pillow imageio-ffmpeg qrcode
+"""
+import hashlib, io, json, os, re, subprocess, sys, tarfile, tempfile, unicodedata, urllib.request
+
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+CACHE = os.path.expanduser('~/.cache/tilertalker')
+
+# The natural voices offered in Settings. First one is the default.
+VOICES = [
+    {'id': 'michael', 'kokoro': 'am_michael', 'name': 'Michael', 'desc': 'calm man'},
+    {'id': 'fenrir',  'kokoro': 'am_fenrir',  'name': 'Fenrir',  'desc': 'deeper man'},
+    {'id': 'heart',   'kokoro': 'af_heart',   'name': 'Heart',   'desc': 'warm woman'},
+    {'id': 'bella',   'kokoro': 'af_bella',   'name': 'Bella',   'desc': 'bright young woman'},
+    {'id': 'sarah',   'kokoro': 'af_sarah',   'name': 'Sarah',   'desc': 'friendly woman'},
+    {'id': 'george',  'kokoro': 'bm_george',  'name': 'George',  'desc': 'British man'},
+    {'id': 'emma',    'kokoro': 'bf_emma',    'name': 'Emma',    'desc': 'British woman'},
+]
+SPEED = 0.92            # a touch slower than normal speech, easier to follow
+SAMPLE_TEXT = 'Hi! This is my voice.'
+SPEED_TEXT = 'This is how fast I talk'
+
+
+def time_phrases():
+    """What the Time page's answer cards say, as phrases (index.html puts them together in the same words):
+    "The time is" + three + fifteen + "in the afternoon", "Today is Saturday" + October + eleventh, "My dad is
+    coming on Saturday", nine + "more days until Dad comes", two + "more minutes". The single words in between
+    (numbers, months, days of the month, oh, o'clock, first, then) are the ABC page's checked recordings (TIME_WORDS):
+    on their own, this voice engine often puts a stray sound in front of a short word, which tools/abc-voices.py
+    catches. Every phrase here was heard right by Whisper in Michael's voice (2026-10-11; "Dad is coming…" was
+    heard as "That is coming…", so it's "My dad"). Recorded in every voice like a tile, as voices/<voice>/_t-….mp3."""
+    days = 'Monday Tuesday Wednesday Thursday Friday Saturday Sunday'.split()
+    out = ['The time is', 'in the morning', 'in the afternoon', 'in the evening', 'at night']
+    out += [f'Today is {d}' for d in days]
+    for who in ('dad', 'mom'):
+        out += [f'My {who} is coming today', f'My {who} is coming tomorrow'] + [f'My {who} is coming on {d}' for d in days]
+        out += [f'more days until {who.capitalize()} comes']
+    out += ['more minutes', 'Almost done waiting', 'All done waiting!']
+    return out
+
+
+# The single words of the Time page's answers, made like the ABC page's words (every voice): see time_phrases.
+TIME_WORDS = ('January February March April May June July August September October November December '
+              'first second third fourth fifth sixth seventh eighth ninth tenth eleventh twelfth thirteenth '
+              'fourteenth fifteenth sixteenth seventeenth eighteenth nineteenth twentieth twenty-first '
+              "twenty-second twenty-third twenty-fourth twenty-fifth twenty-sixth twenty-seventh twenty-eighth "
+              "twenty-ninth thirtieth thirty-first oh o'clock then").split()
+
+EMOJI_PKG = 'https://registry.npmjs.org/@lobehub/fluent-emoji-3d/-/fluent-emoji-3d-1.1.0.tgz'
+KOKORO_BASE = 'https://github.com/thewh1teagle/kokoro-onnx/releases/download/model-files-v1.0/'
+KOKORO_FILES = ['kokoro-v1.0.onnx', 'voices-v1.0.bin']
+
+
+def slug(s):
+    return re.sub(r'^-+|-+$', '', re.sub(r'[^a-z0-9]+', '-', str(s).lower()))
+
+
+def file_slug(s):
+    """slug() for file names: accented letters become plain ones (Mālō -> malo)."""
+    return slug(unicodedata.normalize('NFKD', str(s)).encode('ascii', 'ignore').decode())
+
+
+def blank(t):
+    """An empty spot on a page: {"empty": true} (or anything without a label)."""
+    return not isinstance(t, dict) or not t.get('label')
+
+
+def load_library():
+    src = open(os.path.join(ROOT, 'library.js'), encoding='utf-8').read()
+    start = src.index('{', src.index('window.TT_LIBRARY'))
+    try:
+        return json.loads(src[start:src.rindex('}') + 1])
+    except json.JSONDecodeError as e:
+        line = src[:start].count('\n') + e.lineno
+        sys.exit(f'library.js has a typo on or just before line {line}: {e.msg}. '
+                 'Check for a missing comma or quote mark. (The last tile in a list has no comma after it.)')
+
+
+def check_mom_under_dad(lib):
+    """Family rule: wherever a Dad tile appears, the same tile for Mom must sit
+    directly underneath it (one row down in the 4-wide grid)."""
+    problems = []
+    for p in lib['pages']:
+        tiles = p['tiles']
+        for i, t in enumerate(tiles):
+            if blank(t) or not re.search(r'\bdad\b', t['label'] + ' ' + (t.get('say') or ''), re.I):
+                continue
+            want = re.sub(r'\bDad\b', 'Mom', t['label']), re.sub(r'\bdad\b', 'mom', re.sub(r'\bDad\b', 'Mom', t.get('say') or ''))
+            below = tiles[i + 4] if i + 4 < len(tiles) and i % 12 < 8 else None
+            if blank(below) or (below['label'], below.get('say') or '') != want:
+                problems.append(f'  page "{p["name"]}": "{t["label"]}" needs "{want[0]}" directly underneath it')
+    if problems:
+        sys.exit('Every Dad tile must have the matching Mom tile directly below it:\n' + '\n'.join(problems))
+
+
+def check_abc_last(lib):
+    """Tim's rule (2026-10-06): the letter board (ABC) is always the last page; new pages go above it."""
+    if any(p.get('keyboard') for p in lib['pages'][:-1]):
+        sys.exit('The ABC page (the letter board) must be the last page in library.js: move it to the end, '
+                 'and put new pages above it.')
+
+
+def all_tiles(lib):
+    """Every speakable tile: the top row, then each page's tiles in order."""
+    return lib['core'] + [t for p in lib['pages'] for t in p['tiles'] if not blank(t)]
+
+
+def recordings(lib):
+    """Every different sentence on the board and the file its recording is saved as,
+    plus how the voice should say it (a tile's "sound", if it has one).
+
+    The app finds a recording by the sentence itself, so tiles that say the same
+    thing share one, and one label can say different things on different pages.
+    A file is named after its tile's label; if another tile with that label says
+    something else, the later one is named after its sentence instead."""
+    jobs, taken, spoken = {SAMPLE_TEXT: '_sample', SPEED_TEXT: '_speed'}, {}, {}
+    for text in time_phrases():                       # the Time page's answers (no tile says them)
+        name, n = '_t-' + file_slug(text), 2
+        while name in jobs.values():                  # "First," and "first" (the 1st)
+            name, n = f'_t-{file_slug(text)}-{n}', n + 1
+        jobs[text] = name
+    for t in all_tiles(lib):
+        text = t.get('say') or t['label']
+        if text in jobs:
+            continue
+        if t.get('sound'):
+            spoken[text] = t['sound']
+        name = file_slug(t['label'])
+        if not name or taken.get(name, text) != text:
+            base = name = file_slug(text) or 'tile'
+            n = 2
+            while taken.get(name, text) != text:
+                name, n = f'{base}-{n}', n + 1
+        taken[name] = text
+        jobs[text] = name
+    return jobs, spoken
+
+
+def photos(lib):
+    """Real photos ("img") used by pages and tiles. They are saved on the phone
+    for offline use, so each one must exist: a missing photo would stop every
+    update from installing."""
+    found = []
+    for item in lib['core'] + lib['pages'] + all_tiles(lib):
+        src = item.get('img')
+        if not src or re.match(r'^[a-z]+:', src):
+            continue
+        if not os.path.isfile(os.path.join(ROOT, src)):
+            sys.exit(f'The photo "{src}" (for "{item.get("label") or item.get("name")}") is missing. '
+                     'Upload it, or remove that "img" line from library.js.')
+        found.append(src)
+    return sorted(set(found))
+
+
+def download(url, dest):
+    if os.path.exists(dest):
+        return dest
+    os.makedirs(os.path.dirname(dest), exist_ok=True)
+    print('  downloading', url.split('/')[-1], '...')
+    tmp = dest + '.part'
+    urllib.request.urlretrieve(url, tmp)
+    os.replace(tmp, dest)
+    return dest
+
+
+# ---------------------------------------------------------------- pictures
+def emoji_dir():
+    d = os.path.join(CACHE, 'fluent-emoji-3d')
+    if not os.path.isdir(d):
+        tgz = download(EMOJI_PKG, os.path.join(CACHE, 'fluent-emoji-3d.tgz'))
+        with tarfile.open(tgz) as tf:
+            tf.extractall(d)
+    return os.path.join(d, 'package', 'assets')
+
+
+def emoji_file(src_dir, emoji):
+    cps = [f'{ord(c):x}' for c in emoji]
+    bare = [c for c in cps if c != 'fe0f']
+    for name in ('-'.join(cps), '-'.join(bare), '-'.join(bare) + '-fe0f'):
+        if os.path.exists(os.path.join(src_dir, name + '.webp')):
+            return name + '.webp'
+    return None
+
+
+def build_pictures(lib):
+    src_dir = emoji_dir()
+    icons = [t['icon'] for t in lib['core']] + [p['icon'] for p in lib['pages']]
+    icons += [t['icon'] for p in lib['pages'] for t in p['tiles'] if not blank(t)]
+    out, missing = {}, []
+    os.makedirs(os.path.join(ROOT, 'img'), exist_ok=True)
+    for e in dict.fromkeys(icons):
+        name = emoji_file(src_dir, e)
+        if not name:
+            missing.append(e)
+            continue
+        data = open(os.path.join(src_dir, name), 'rb').read()
+        dest = os.path.join(ROOT, 'img', name)
+        if not os.path.exists(dest) or open(dest, 'rb').read() != data:
+            open(dest, 'wb').write(data)
+        out[e] = 'img/' + name
+    # drop pictures no tile uses any more
+    used = {os.path.basename(v) for v in out.values()}
+    for f in os.listdir(os.path.join(ROOT, 'img')):
+        if f.endswith('.webp') and f not in used:
+            os.remove(os.path.join(ROOT, 'img', f))
+    if missing:
+        print('  no 3D picture for', ' '.join(missing), '(the emoji itself will show)')
+    print(f'  {len(out)} pictures')
+    return out
+
+
+def build_app_icons():
+    """Home-screen icons: the cowboy on a warm rounded square."""
+    from PIL import Image, ImageDraw
+    face = Image.open(os.path.join(emoji_dir(), '1f920.webp')).convert('RGBA')
+    os.makedirs(os.path.join(ROOT, 'icons'), exist_ok=True)
+    for size, maskable in ((192, False), (512, False), (512, True)):
+        im = Image.new('RGBA', (size, size), (0, 0, 0, 0))
+        bg = Image.new('RGBA', (size, size), (232, 163, 23, 255))
+        if maskable:
+            im = bg
+        else:
+            mask = Image.new('L', (size, size), 0)
+            ImageDraw.Draw(mask).rounded_rectangle([0, 0, size - 1, size - 1], radius=size // 5, fill=255)
+            im.paste(bg, (0, 0), mask)
+        inner = int(size * (0.62 if maskable else 0.78))
+        f = face.resize((inner, inner), Image.LANCZOS)
+        off = (size - inner) // 2
+        im.alpha_composite(f, (off, off))
+        name = f'icon-{size}{"-maskable" if maskable else ""}.png'
+        im.save(os.path.join(ROOT, 'icons', name), optimize=True)
+
+
+# The pages offered when the app's icon is held (Android shows up to four), opening the board at that page.
+SHORTCUT_PAGES = ['I want', 'I feel', 'Ouch', 'Food']
+
+
+def build_shortcuts(lib):
+    """An icon for each shortcut (the page's picture on a circle of its colour, icons/page-<page>.png) and
+    the manifest's list of them. A page that isn't on the board is left out."""
+    from PIL import Image, ImageDraw
+    by_name = {p['name']: p for p in lib['pages']}
+    out, size = [], 192
+    for name in SHORTCUT_PAGES:
+        p = by_name.get(name)
+        if not p:
+            continue
+        drawn = p.get('img') if re.match(r'^pictures/', p.get('img') or '') else None
+        src = os.path.join(ROOT, drawn) if drawn else (lambda f: f and os.path.join(emoji_dir(), f))(emoji_file(emoji_dir(), p['icon']))
+        im = Image.new('RGBA', (size, size), (0, 0, 0, 0))
+        col = tuple(int(p.get('color', '#3C6E9F')[i:i + 2], 16) for i in (1, 3, 5)) + (255,)
+        ImageDraw.Draw(im).ellipse([0, 0, size - 1, size - 1], fill=col)
+        if src and os.path.exists(src):
+            inner = int(size * 0.62)
+            face = Image.open(src).convert('RGBA').resize((inner, inner), Image.LANCZOS)
+            im.alpha_composite(face, ((size - inner) // 2, (size - inner) // 2))
+        rel = f'icons/page-{slug(name)}.png'
+        im.save(os.path.join(ROOT, rel), optimize=True)
+        out.append({'name': name, 'short_name': name, 'url': f'./?page={slug(name)}',
+                    'icons': [{'src': rel, 'sizes': f'{size}x{size}', 'type': 'image/png'}]})
+    return out
+
+
+def write_manifest(shortcuts):
+    """manifest.webmanifest: the shortcuts; "launch_handler", so a shortcut or sticker used while the app is
+    open turns the page in the open app instead of starting it again; and "share_target", so a photo can be
+    shared to Talanoa from the gallery. Everything else is left as it is."""
+    path = os.path.join(ROOT, 'manifest.webmanifest')
+    m = json.load(open(path, encoding='utf-8'))
+    m['shortcuts'] = shortcuts
+    m['launch_handler'] = {'client_mode': ['focus-existing', 'auto']}
+    # Share → Talanoa from the gallery: a photo for a new picture, or for one already on the board (sw.js keeps it)
+    m['share_target'] = {'action': './share-photo', 'method': 'POST', 'enctype': 'multipart/form-data',
+                         'params': {'files': [{'name': 'photo', 'accept': ['image/*']}]}}
+    open(path, 'w', encoding='utf-8', newline='\n').write(json.dumps(m, ensure_ascii=False, indent=2) + '\n')
+
+
+# ---------------------------------------------------------------- voices
+PROCESS = 'trim-start+level-v2'   # change this to force every clip to be recorded again
+
+
+def finish(s, sr):
+    """Cut the quiet lead-in so a tap speaks straight away (the ending is left
+    whole so final sounds like the k in "snack" survive), then bring every clip
+    to the same loudness so no tile is suddenly louder than another."""
+    import numpy as np
+    win = max(1, int(sr * 0.01))
+    env = np.convolve(np.abs(s), np.ones(win) / win, mode='same')
+    loud = np.where(env > 10 ** (-48 / 20))[0]
+    if len(loud):
+        s = s[max(0, loud[0] - int(sr * 0.04)):]
+    voiced = s[env[-len(s):] > 10 ** (-40 / 20)] if len(s) else s
+    rms = float(np.sqrt(np.mean(voiced ** 2))) if len(voiced) else 0.0
+    if rms > 0:
+        gain = min(0.12 / rms, 0.89 / max(1e-6, float(np.max(np.abs(s)))))
+        s = s * gain
+    return np.concatenate([np.zeros(int(sr * 0.02), dtype=s.dtype), s])
+
+
+def build_voices(jobs, spoken):
+    import numpy as np, soundfile as sf, imageio_ffmpeg
+    from kokoro_onnx import Kokoro
+    model = [download(KOKORO_BASE + f, os.path.join(CACHE, 'kokoro', f)) for f in KOKORO_FILES]
+    ffmpeg = imageio_ffmpeg.get_ffmpeg_exe()
+    kokoro = None
+    result = {}
+    for v in VOICES:
+        vdir = os.path.join(ROOT, 'voices', v['id'])
+        os.makedirs(vdir, exist_ok=True)
+        man_path = os.path.join(vdir, 'manifest.json')
+        manifest = json.load(open(man_path)) if os.path.exists(man_path) else {}
+        made = 0
+        clips = {}
+        for text, tid in jobs.items():
+            words = spoken.get(text, text)        # what the voice actually reads out
+            key = hashlib.sha1(f'{v["kokoro"]}|{SPEED}|{PROCESS}|{words}'.encode()).hexdigest()[:10]
+            dest = os.path.join(vdir, tid + '.mp3')
+            if manifest.get(tid) != key or not os.path.exists(dest):
+                if kokoro is None:
+                    kokoro = Kokoro(*model)
+                ipa = len(words) > 2 and words[0] == '/' and words[-1] == '/'     # "/ˈʌʔoʊ/": exact sounds
+                samples, sr = kokoro.create(words[1:-1] if ipa else words, voice=v['kokoro'], speed=SPEED,
+                                            lang='en-gb' if v['kokoro'].startswith('b') else 'en-us',
+                                            **({'is_phonemes': True} if ipa else {}))
+                audio = finish(np.asarray(samples, dtype=np.float32), sr)
+                buf = io.BytesIO()
+                sf.write(buf, audio, sr, format='WAV', subtype='PCM_16')
+                subprocess.run([ffmpeg, '-loglevel', 'error', '-y', '-f', 'wav', '-i', 'pipe:0',
+                                '-ac', '1', '-ar', '24000', '-codec:a', 'libmp3lame',
+                                '-b:a', '48k', dest], input=buf.getvalue(), check=True)
+                manifest[tid] = key
+                made += 1
+            clips[text] = f'voices/{v["id"]}/{tid}.mp3?v={key}'
+        # forget recordings of sentences no tile says any more
+        names = set(jobs.values())
+        for tid in list(manifest):
+            if tid not in names:
+                del manifest[tid]
+                p = os.path.join(vdir, tid + '.mp3')
+                if os.path.exists(p):
+                    os.remove(p)
+        # ... and any recording with no entry at all: a build run on another computer (NORMANDY's GPU) deletes
+        # it there but can't delete it here (2026-10-05: the old About me clips were left behind that way)
+        for f in os.listdir(vdir):
+            if f.endswith('.mp3') and f[:-4] not in manifest:
+                os.remove(os.path.join(vdir, f))
+        json.dump(manifest, open(man_path, 'w'), indent=0, sort_keys=True)
+        result[v['id']] = clips
+        print(f'  voice {v["name"]}: {len(clips)} clips ({made} new)')
+    return result
+
+
+# ---------------------------------------------------------------- output
+def file_hash(paths):
+    h = hashlib.sha1()
+    for p in sorted(paths):
+        h.update(p.encode())
+        f = p.split('?')[0]
+        h.update(open(os.path.join(ROOT, f + 'index.html' if f.endswith('/') else f), 'rb').read())   # 'manual/' = its index.html
+    return h.hexdigest()[:12]
+
+
+def abc_key(word):
+    """How a typed word is looked up on the ABC page: letters only, lower case (the keyboard has no apostrophe)."""
+    return re.sub(r'[^a-z]', '', word.lower())
+
+
+# The words numbers are said with on the ABC page (Settings → Numbers on the ABC page): 15 is
+# "fifteen", 2026 "two thousand twenty six". Every voice has them, like the board's own words.
+NUMBER_WORDS = ('zero one two three four five six seven eight nine ten eleven twelve thirteen fourteen fifteen '
+                'sixteen seventeen eighteen nineteen twenty thirty forty fifty sixty seventy eighty ninety '
+                'hundred thousand').split()
+
+
+def abc_board_words(lib):
+    """Every English word on the board (labels and sentences), plus the page names, the number words and the
+    Time page's words (TIME_WORDS)."""
+    found = {}
+    texts = [p['name'] for p in lib['pages']]
+    for t in all_tiles(lib):
+        if t.get('means'):
+            continue                                  # the Tongan page: the keyboard can't type it
+        texts += [t['label'], t.get('say') or '']
+    for text in texts:
+        for w in re.findall(r"[A-Za-z][A-Za-z']*", text):
+            k = abc_key(w)
+            if k and k not in found:
+                found[k] = w.lower()
+    for w in NUMBER_WORDS:
+        found.setdefault(w, w)
+    for w in TIME_WORDS:                              # the Time page's answers: October, twenty-first, o'clock…
+        found.setdefault(abc_key(w), w.lower())
+    return found                                      # key -> spoken form ("dont" -> "don't")
+
+
+def abc_clips(lib):
+    """The ABC page's letters and words in each voice, made by tools/abc-voices.py (not by this build:
+    it needs a speech recogniser to pick clean versions). Only clips that exist are listed.
+    The letters and the board's own words go in assets.js. Every word a voice can say (the board's,
+    and for the voices in LIST_VOICES in tools/abc-voices.py about 9,000 everyday ones) goes in voices/<voice>/abc/words.json, word -> version, which
+    the app loads for the chosen voice only; its clip is voices/<voice>/abc/w-<word>.mp3?v=<version>."""
+    path = os.path.join(ROOT, 'voices', 'abc.json')
+    out = {'letters': {}, 'words': {}, 'lists': {}}
+    if not os.path.exists(path):
+        return out
+    data = json.load(open(path, encoding='utf-8'))
+    def present(m):
+        return {k: u for k, u in m.items() if os.path.exists(os.path.join(ROOT, u.split('?')[0]))}
+    board = abc_board_words(lib)
+    out['letters'] = {v: present(m) for v, m in data.get('letters', {}).items()}
+    for v, m in data.get('words', {}).items():
+        have = present(m)
+        out['words'][v] = {k: u for k, u in have.items() if k in board}
+        listed = {k: u.split('?v=', 1)[1] for k, u in have.items()
+                  if '?v=' in u and u.split('?')[0] == f'voices/{v}/abc/w-{k}.mp3'}
+        body = json.dumps(listed, separators=(',', ':'), sort_keys=True)
+        rel = f'voices/{v}/abc/words.json'
+        open(os.path.join(ROOT, rel), 'w', encoding='utf-8', newline='\n').write(body + '\n')
+        out['lists'][v] = rel + '?v=' + hashlib.sha1(body.encode()).hexdigest()[:10]
+    return out
+
+
+def write_outputs(lib, pictures, clips, photo_files):
+    # clips: for each voice, sentence -> recording
+    assets = {
+        'voices': [{k: v[k] for k in ('id', 'name', 'desc')} for v in VOICES],
+        'img': pictures,
+        'clips': clips,
+        'abc': abc_clips(lib),
+    }
+    js = ('/* Generated by tools/build.py: do not edit by hand. */\n'
+          'window.TT_ASSETS = ' + json.dumps(assets, ensure_ascii=False, indent=0) + ';\n')
+    open(os.path.join(ROOT, 'assets.js'), 'w', encoding='utf-8').write(js)
+
+
+def guide_files():
+    """The staff guide (manual/) and every picture it shows, so it opens with no internet too.
+    The PDFs aren't included: they're big, and only for printing."""
+    page = os.path.join(ROOT, 'manual', 'index.html')
+    if not os.path.isfile(page):
+        return []
+    found = ['manual/']
+    for ref in re.findall(r'\bsrc="([^"#?]+)"', open(page, encoding='utf-8').read()):
+        if re.match(r'^[a-z]+:', ref):
+            continue
+        rel = os.path.normpath(os.path.join('manual', ref)).replace(os.sep, '/')
+        if not rel.startswith('..') and os.path.isfile(os.path.join(ROOT, rel)):
+            found.append(rel)
+    return found
+
+
+def write_sw(pictures, photo_files):
+    """sw.js: the offline helper, with the list of files kept on the phone. Written last, after the
+    staff guide, because the version is a hash of everything on the list."""
+    shell = ['index.html', 'credits.html', 'print.html', 'library.js', 'assets.js', 'manifest.webmanifest',
+             'icons/icon-192.png', 'icons/icon-512.png', 'icons/icon-512-maskable.png']
+    shell += sorted('icons/' + f for f in os.listdir(os.path.join(ROOT, 'icons')) if f.startswith('page-'))   # shortcut icons
+    shell += [f for f in ('lib/qrcode.js', 'lib/jsQR.js') if os.path.isfile(os.path.join(ROOT, f))]          # QR stickers: print, scan
+    precache = shell + sorted(set(pictures.values())) + photo_files
+    if os.path.isfile(os.path.join(ROOT, 'abc-rank.txt')):
+        precache.append('abc-rank.txt')        # the ABC page's word suggestions (tools/abc-rank.py)
+    precache += [f for f in guide_files() if f not in precache]
+    version = file_hash(precache + ['tools/sw-template.js'])
+    tpl = open(os.path.join(ROOT, 'tools', 'sw-template.js'), encoding='utf-8').read()
+    sw = tpl.replace('__VERSION__', version).replace('__PRECACHE__', json.dumps(['./'] + precache, indent=1))
+    open(os.path.join(ROOT, 'sw.js'), 'w', encoding='utf-8').write(sw)
+    print(f'  offline cache version {version}: {len(precache)} files + voice clips')
+
+
+def main():
+    lib = load_library()
+    check_mom_under_dad(lib)
+    check_abc_last(lib)
+    photo_files = photos(lib)
+    jobs, spoken = recordings(lib)
+    print(f'{len(lib["pages"])} pages, {len(all_tiles(lib))} tiles, {len(jobs) - 2 - len(time_phrases())} different sentences'
+          f' (+ {len(time_phrases())} for the Time page\'s answers)')
+    pictures = build_pictures(lib)
+    build_app_icons()
+    write_manifest(build_shortcuts(lib))
+    clips = build_voices(jobs, spoken)
+    write_outputs(lib, pictures, clips, photo_files)
+    import manual
+    manual.main()
+    write_sw(pictures, photo_files)
+    print('Done.')
+
+
+def offline_list_only():
+    """python3 tools/build.py --offline-list: just rewrite sw.js from what's already built (used by
+    tools/guide-pictures.js after it remakes the staff guide)."""
+    lib = load_library()
+    src = open(os.path.join(ROOT, 'assets.js'), encoding='utf-8').read()
+    assets = json.loads(src[src.index('{'):src.rindex('}') + 1])
+    write_sw(assets['img'], photos(lib))
+
+
+if __name__ == '__main__':
+    offline_list_only() if '--offline-list' in sys.argv else main()
