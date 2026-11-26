@@ -6,7 +6,9 @@
 <script>
 /* Fitting above Android's navigation bar: see "ANDROID'S NAVIGATION BAR" below.
    If this phone was found to need it, ask for it before anything is drawn. */
-try { if (localStorage.getItem('ttd_fit') === 'cover') document.querySelector('meta[name=viewport]').content += ', viewport-fit=cover'; } catch(e){}
+try { if (localStorage.getItem('ttd_fit') === 'cover'){ document.querySelector('meta[name=viewport]').content += ', viewport-fit=cover';
+  var tt_inset = parseFloat(localStorage.getItem('ttd_fit_inset'));      /* the bar's height last time Chrome told us */
+  if (tt_inset > 0) document.documentElement.style.setProperty('--navfix', tt_inset + 'px'); } } catch(e){}
 </script>
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -29,6 +31,7 @@ try { if (localStorage.getItem('ttd_fit') === 'cover') document.querySelector('m
     --banner-h:clamp(40px,7vh,68px);
     --core-h:clamp(62px,13vh,116px);
     --nav-h:clamp(52px,9.5vh,92px);
+    --sab:max(env(safe-area-inset-bottom),var(--navfix,0px));   /* see ANDROID'S NAVIGATION BAR */
   }
   *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
   html,body{margin:0;padding:0;height:100%;overflow:hidden;}
@@ -41,7 +44,7 @@ try { if (localStorage.getItem('ttd_fit') === 'cover') document.querySelector('m
     user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;
     display:flex;flex-direction:column;
     height:100vh;height:100dvh;
-    padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+    padding:env(safe-area-inset-top) env(safe-area-inset-right) var(--sab) env(safe-area-inset-left);
   }
   button{font:inherit;color:inherit;}
   img{-webkit-user-drag:none;pointer-events:none;}
@@ -195,7 +198,7 @@ try { if (localStorage.getItem('ttd_fit') === 'cover') document.querySelector('m
   .overlay{
     position:fixed;inset:0;z-index:30;background:rgba(30,20,10,.78);
     display:none;align-items:center;justify-content:center;padding:16px;
-    padding-top:max(16px,env(safe-area-inset-top));padding-bottom:max(16px,env(safe-area-inset-bottom));
+    padding-top:max(16px,env(safe-area-inset-top));padding-bottom:max(16px,var(--sab));
   }
   .overlay.open{display:flex;}
   #pickGrid{
@@ -259,13 +262,13 @@ try { if (localStorage.getItem('ttd_fit') === 'cover') document.querySelector('m
   /* ---------- Darker page names (Settings, off unless chosen) ---------- */
   /* The same colours, darkened just enough for the white writing to be easy to read. */
   body.strong #title,body.strong .pick{background:var(--pc-strong);}
-  body.room{padding-bottom:max(env(safe-area-inset-bottom),48px);}
+  body.room{padding-bottom:max(var(--sab),48px);}
   body.strong .core-btn{background:var(--c-strong);}
 
   /* ---------- Show it big: the words fill the screen ---------- */
   #said{cursor:pointer;}
   #showView{position:fixed;inset:0;z-index:60;background:#fff;display:none;flex-direction:column;
-            border:10px solid #0057FF;padding:env(safe-area-inset-top) 0 env(safe-area-inset-bottom);}
+            border:10px solid #0057FF;padding:env(safe-area-inset-top) 0 var(--sab);}
   #showView.open{display:flex;}
   #showText{flex:1;min-height:0;display:flex;align-items:center;justify-content:center;padding:16px 18px;overflow:hidden;}
   #showWords{max-width:100%;text-align:center;font-weight:900;line-height:1.12;color:#111;user-select:text;}
@@ -363,7 +366,7 @@ try { if (localStorage.getItem('ttd_fit') === 'cover') document.querySelector('m
   @keyframes attn1{0%{opacity:0}20%{opacity:.5}100%{opacity:0}}
 
   /* ---------- A short message near the bottom (staff tools, stickers) ---------- */
-  #toast{position:fixed;left:50%;bottom:calc(16px + env(safe-area-inset-bottom));transform:translateX(-50%);z-index:70;max-width:92vw;
+  #toast{position:fixed;left:50%;bottom:calc(16px + var(--sab));transform:translateX(-50%);z-index:70;max-width:92vw;
          background:#2B1D0E;color:#fff;border-radius:14px;padding:12px 16px;font-size:16px;font-weight:700;text-align:center;
          box-shadow:0 4px 14px rgba(0,0,0,.35);opacity:0;pointer-events:none;transition:opacity .2s;}
   #toast.on{opacity:1;}
@@ -377,7 +380,7 @@ try { if (localStorage.getItem('ttd_fit') === 'cover') document.querySelector('m
   #scanView.open{display:flex;}
   #scanVideo{flex:1;min-height:0;width:100%;object-fit:cover;}
   #scanMsg{flex:none;color:#fff;font-size:18px;font-weight:800;text-align:center;padding:12px;}
-  #scanClose{flex:none;margin:0 12px calc(12px + env(safe-area-inset-bottom));padding:16px;border:none;border-radius:16px;background:#444;color:#fff;font-size:20px;font-weight:900;}
+  #scanClose{flex:none;margin:0 12px calc(12px + var(--sab));padding:16px;border:none;border-radius:16px;background:#444;color:#fff;font-size:20px;font-weight:900;}
   .pick.scan{background:#3C6E9F;box-shadow:0 5px 0 #29496A;justify-content:center;}
 
   /* ---------- Made on this phone: the editor's extra fields, the picture chooser, a shared photo ---------- */
@@ -395,7 +398,7 @@ try { if (localStorage.getItem('ttd_fit') === 'cover') document.querySelector('m
 
   /* ---------- The Time page's answers: a card over the board ---------- */
   #infoView{position:fixed;inset:0;z-index:58;background:#fff;display:none;flex-direction:column;border:10px solid #00838F;
-            padding:env(safe-area-inset-top) 0 env(safe-area-inset-bottom);}
+            padding:env(safe-area-inset-top) 0 var(--sab);}
   #infoView.open{display:flex;}
   #infoBody{flex:1;min-height:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2vh;padding:14px;text-align:center;overflow:hidden;}
   #infoBtns{flex:none;display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:10px;}
@@ -4716,30 +4719,69 @@ window.addEventListener('popstate', function(){
    ============================================================ */
 var viewportMeta = document.querySelector('meta[name=viewport]');
 var PLAIN_VIEWPORT = viewportMeta.content.replace(/,\s*viewport-fit=cover/, '');
-function setCover(on){ viewportMeta.content = PLAIN_VIEWPORT + (on ? ', viewport-fit=cover' : ''); }
+function savedInset(){ var n = parseFloat(store('ttd_fit_inset')); return n > 0 ? n : 0; }
+/* --navfix: the bar's height as last reported. The body is padded by whichever is bigger, the bar Chrome reports
+   now or this, so a moment when Chrome says 0 (just after an update, a restart, or coming back from another
+   app) can't drop the bottom row under the bar. Only ever set while viewport-fit=cover is on. */
+function setNavfix(px){ if (px > 0) document.documentElement.style.setProperty('--navfix', px + 'px'); else document.documentElement.style.removeProperty('--navfix'); }
+function setCover(on){ viewportMeta.content = PLAIN_VIEWPORT + (on ? ', viewport-fit=cover' : ''); setNavfix(on ? savedInset() : 0); }
 function coverOn(){ return /viewport-fit=cover/.test(viewportMeta.content); }
 function bottomInset(){ return parseFloat(getComputedStyle(document.getElementById('insetProbe')).paddingBottom) || 0; }
 function afterFrames(n, fn){ requestAnimationFrame(function(){ if (n > 1) afterFrames(n - 1, fn); else fn(); }); }
-function fitDone(mode){
-  try { localStorage.setItem('ttd_fit', mode); localStorage.setItem('ttd_fit_size', innerWidth + 'x' + innerHeight); } catch(e){}
+function fitDone(mode, inset){
+  try {
+    localStorage.setItem('ttd_fit', mode); localStorage.setItem('ttd_fit_size', innerWidth + 'x' + innerHeight);
+    if (inset > 0) localStorage.setItem('ttd_fit_inset', String(Math.round(inset)));
+  } catch(e){}
+  setNavfix(mode === 'cover' ? savedInset() : 0);
   fitLabels(coreEl); if (gridEl) fitLabels(gridEl);
 }
-function fitNavBar(){
-  var installed = matchMedia('(display-mode: standalone), (display-mode: fullscreen)').matches;
-  if (!installed || !/Android/i.test(navigator.userAgent)) return;
-  var mode = store('ttd_fit'), size = store('ttd_fit_size');
-  if (mode === 'none' && size === innerWidth + 'x' + innerHeight) return;      /* checked before: nothing to do */
-  if (mode === 'cover' && coverOn()){                                         /* set before drawing: is it still right? */
-    setTimeout(function(){ if (bottomInset() > 0) fitDone('cover'); else { setCover(false); fitDone('none'); } }, 400);
-    return;
-  }
+function androidApp(){
+  return matchMedia('(display-mode: standalone), (display-mode: fullscreen)').matches && /Android/i.test(navigator.userAgent);
+}
+/* Switch cover on and wait for Chrome to report the bar: up to about 3 seconds, because right after an update or
+   a restart it can say 0 for a moment (2026-11-26, seen on a Pixel: the bottom row sat under the bar until the app
+   was closed and opened again); a phone never fitted before gets one quick look, as before. Still 0 at the end: a phone that has shown its bar before stays fitted by the
+   remembered height; a phone that never has (some report 0 even with a bar, 2026-09-26) goes back to the plain viewport. */
+var fitBusy = false;
+function probeCover(){
+  fitBusy = true;
+  var fittedBefore = store('ttd_fit') === 'cover' || savedInset() > 0;   /* only these can be caught by a "0 for a moment" */
+  var waits = fittedBefore ? [150, 450, 900, 1500] : [150], i = 0;
   setCover(true);
-  afterFrames(3, function(){ setTimeout(function(){
-    if (bottomInset() > 0) fitDone('cover');
-    else { setCover(false); fitDone('none'); }
-  }, 150); });
+  function look(){
+    var b = bottomInset();
+    if (b > 0){ fitBusy = false; store('ttd_fit_quiet', '0'); fitDone('cover', b); return; }
+    if (++i < waits.length){ setTimeout(look, waits[i]); return; }
+    fitBusy = false;
+    var quiet = (parseInt(store('ttd_fit_quiet'), 10) || 0) + 1;      /* fitted before, but no height known yet: give it 3 tries */
+    if (savedInset() > 0 || (fittedBefore && quiet < 3)){ store('ttd_fit_quiet', String(quiet)); fitDone('cover'); }
+    else { store('ttd_fit_quiet', '0'); setCover(false); fitDone('none'); }
+  }
+  afterFrames(3, function(){ setTimeout(look, waits[0]); });
+}
+function fitNavBar(){
+  if (fitBusy || !androidApp()) return;
+  if (document.visibilityState === 'hidden') return;     /* updated or reopened out of sight: decide when he can see it (below) */
+  var mode = store('ttd_fit'), size = store('ttd_fit_size');
+  if (mode === 'none' && size === innerWidth + 'x' + innerHeight && !savedInset()) return;   /* checked before: nothing to do */
+  if (mode === 'cover' && coverOn() && bottomInset() > 0){ fitDone('cover', bottomInset()); return; }
+  probeCover();
 }
 if (document.readyState === 'complete') fitNavBar(); else window.addEventListener('load', fitNavBar);
+/* Check again whenever the app comes back to the front, and when the window changes size (not while a keyboard
+   is up for typing in Settings): nothing has to be closed and opened again. */
+document.addEventListener('visibilitychange', function(){ if (document.visibilityState === 'visible') setTimeout(fitNavBar, 300); });
+window.addEventListener('pageshow', function(e){ if (e.persisted) setTimeout(fitNavBar, 300); });
+var fitResizeTimer = null;
+window.addEventListener('resize', function(){
+  clearTimeout(fitResizeTimer);
+  fitResizeTimer = setTimeout(function(){
+    var a = document.activeElement;
+    if (a && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName)) return;
+    fitNavBar();
+  }, 800);
+});
 function showScreen(){
   var el = document.getElementById('screenStat');
   el.textContent = 'Screen ' + innerWidth + ' × ' + innerHeight + ', navigation bar reported as ' + Math.round(bottomInset()) + ' px' +
