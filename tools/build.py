@@ -143,6 +143,12 @@ def recordings(lib):
         while name in jobs.values():                  # "First," and "first" (the 1st)
             name, n = f'_t-{file_slug(text)}-{n}', n + 1
         jobs[text] = name
+    for t in lib.get('partner', []):                  # Face to face: the other person's answers, in every voice
+        text = t.get('say') or t['label']
+        if text not in jobs:
+            jobs[text] = '_p-' + file_slug(t['label'])
+            if t.get('sound'):
+                spoken[text] = t['sound']     # Emma said "Okay!" as "a little K" (Whisper, 2026-11-26)
     for t in all_tiles(lib):
         text = t.get('say') or t['label']
         if text in jobs:
@@ -210,6 +216,7 @@ def build_pictures(lib):
     src_dir = emoji_dir()
     icons = [t['icon'] for t in lib['core']] + [p['icon'] for p in lib['pages']]
     icons += [t['icon'] for p in lib['pages'] for t in p['tiles'] if not blank(t)]
+    icons += [t['icon'] for t in lib.get('partner', [])]
     out, missing = {}, []
     os.makedirs(os.path.join(ROOT, 'img'), exist_ok=True)
     for e in dict.fromkeys(icons):

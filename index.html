@@ -490,11 +490,78 @@ try { if (localStorage.getItem('ttd_fit') === 'cover') document.querySelector('m
   .visit input[type=date]{font-size:16px;padding:6px;}
   .visit button.plain{margin:0;padding:6px;}
   .visit small{grid-column:1/-1;color:#555;margin:-2px 0 6px;}
+  /* ---------- Face to face (2026-11-26, Tim: "the upside down is a brilliant idea"): off unless switched on ----------
+     For a talk: the phone lies flat on the table between him and the person he's talking with. The top part is
+     turned round to face them: his last words, big, and four answers they can tap. Their answer is said in a
+     different voice (Settings → Face to face) and shown in the banner on his side. His board keeps every picture
+     in its place, just smaller. The speech-bubbles button (#f2fBtn) at the left of the banner switches it on and off. */
+  #partner,#hinge{display:none;}
+  body.f2f{--banner-h:clamp(34px,5.5vh,56px);--core-h:clamp(52px,9vh,96px);--nav-h:clamp(40px,6.5vh,72px);}
+  body.f2f #partner{display:flex;flex-direction:column;flex:0 0 38%;min-height:0;transform:rotate(180deg);
+    background:linear-gradient(180deg,#1B2B4E,#14213D);color:#fff;padding:12px 14px 12px;gap:6px;overflow:hidden;}
+  body.f2f #dots{display:none;}              /* the page bar is shorter: just the page name */
+  body.f2f #hinge{display:flex;flex:0 0 14px;align-items:center;justify-content:center;background:#D9CDB0;}
+  #hinge i{width:44px;height:5px;border-radius:3px;background:#A8987A;}
+  #partner small{font-size:12px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:#93A9D8;flex:none;}
+  .pt-line{flex:1;min-height:0;display:flex;align-items:center;gap:12px;}
+  .pt-line .pic{height:min(64px,70%);aspect-ratio:1;flex:none;}
+  .pt-line .pic:empty{display:none;}
+  .pt-line .pic img{height:100%;width:100%;object-fit:contain;}
+  #ptText{font-size:clamp(22px,4.6vh,44px);font-weight:900;line-height:1.08;overflow:hidden;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;}
+  #ptText.hello{font-size:clamp(17px,2.7vh,25px);font-weight:700;line-height:1.25;color:#DCE5F7;}
+  #ptAnswers{display:grid;grid-template-columns:1fr 1fr;gap:8px;flex:none;}
+  .pt-ans{height:clamp(40px,6vh,56px);border:none;border-radius:999px;display:flex;align-items:center;gap:8px;padding:0 14px;min-width:0;
+    font-size:clamp(15px,2.2vh,19px);font-weight:800;cursor:pointer;background:var(--a);color:var(--af);box-shadow:inset 0 -3px 0 rgba(0,0,0,.2);}
+  .pt-ans .pic{height:58%;aspect-ratio:1;flex:none;}
+  .pt-ans .pic img{height:100%;width:100%;object-fit:contain;}
+  .pt-ans span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .pt-ans.sent{outline:4px solid #fff;outline-offset:2px;}
+  #f2fBtn{position:absolute;left:7px;top:50%;transform:translateY(-50%);width:38px;height:38px;border-radius:50%;border:none;
+    background:rgba(255,255,255,.18);cursor:pointer;z-index:6;padding:0;display:none;align-items:center;justify-content:center;}
+  body.f2f-show #f2fBtn{display:flex;}      /* staff tick it in Settings; off unless chosen (Tim: "not by default") */
+  #f2fBtn svg{width:25px;height:25px;display:block;}
+  #f2fBtn .me{fill:#fff;} #f2fBtn .them{fill:rgba(255,255,255,.6);}
+  body.f2f #f2fBtn{background:#fff;} body.f2f #f2fBtn .me{fill:#14213D;} body.f2f #f2fBtn .them{fill:#3D6FE0;}
+  /* It sits in the banner's empty left margin, so his words keep all their room. Building a sentence (or modelling)
+     puts 🔊 ✕ there: then it steps aside, or, with Face to face on, sits just after them. */
+  body.sent.has-sent:not(.f2f) #f2fBtn,body.modelling:not(.f2f) #f2fBtn{display:none;}
+  body.f2f.sent.has-sent #f2fBtn,body.f2f.modelling #f2fBtn{left:110px;}
+  body.f2f.sent.has-sent #banner,body.f2f.modelling #banner{padding-left:154px;}
+  #reply{display:none;position:absolute;inset:0;align-items:center;justify-content:center;gap:10px;padding:0 52px;
+    background:#14213D;color:#fff;z-index:4;white-space:nowrap;overflow:hidden;font-size:clamp(17px,3vh,28px);}
+  #banner.replying #reply{display:flex;}
+  #reply .pic{height:70%;aspect-ratio:1;flex:none;} #reply .pic img{height:100%;width:100%;object-fit:contain;}
+  #reply span{overflow:hidden;text-overflow:ellipsis;}
+
+  /* ---------- Every page (tap the page name): all of them on one screen, the top row still there ---------- */
+  #title{position:relative;}
+  #title .allpg{position:absolute;right:7px;top:7px;width:13px;height:13px;opacity:.85;pointer-events:none;
+    background:radial-gradient(circle,#fff 0 2.2px,transparent 2.6px) 0 0/6.5px 6.5px;}
+  #picker.fit{background:var(--bg);align-items:stretch;justify-content:stretch;padding:8px;bottom:0;}
+  #picker.fit #pickGrid{width:100%;height:100%;max-height:none;overflow:hidden;gap:8px;
+    grid-template-columns:repeat(var(--pk-cols),minmax(0,1fr));grid-template-rows:repeat(var(--pk-rows),minmax(0,1fr));}
+  #picker.fit .pick{padding:3px 4px;gap:1px;font-size:clamp(13px,2.1vh,20px);line-height:1.05;min-height:0;border-radius:14px;box-shadow:0 4px 0 var(--pc-dark);}
+  #picker.fit .pick .pic{height:54%;max-height:64px;min-height:0;}
+  #picker.fit .pick.scan,#picker.fit .pick.close{font-size:clamp(12px,1.9vh,18px);}
+
+  /* ---------- Settings: holding ⚙ fills a ring, so staff know to keep holding ---------- */
+  #gear::after{content:'';position:absolute;inset:-3px;border-radius:50%;border:3px solid transparent;pointer-events:none;}
+  #gear.holding::after{border-color:#fff;clip-path:inset(0 0 0 0);animation:gearRing 1s linear forwards;}
+  @keyframes gearRing{from{clip-path:inset(100% 0 0 0);}to{clip-path:inset(0 0 0 0);}}
+  /* Setups: the options for a kind of phone, in one go (each one says what it changes first) */
+  .setups{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:4px 0 6px;}
+  .setups button{border:2px solid #E5DCC8;border-radius:12px;background:#fff;padding:10px 6px;cursor:pointer;font-size:14px;font-weight:800;
+    display:flex;flex-direction:column;align-items:center;gap:4px;line-height:1.15;}
+  .setups button span{font-size:26px;}
+  .setup-list{margin:8px 0 12px;padding-left:20px;font-size:15px;line-height:1.5;}
+  .setup-list li.same{color:#8A7F6A;}
 </style>
 </head>
 <body>
 
-<div id="banner"><div id="modelBtns"><button id="modelHint" aria-label="Hint: show him a picture without saying it">👆</button><button id="modelStop" aria-label="Stop modelling">✕</button></div><div id="sentBtns"><button id="sentSay" aria-label="Say the whole sentence">🔊</button><button id="sentClear" aria-label="Start the sentence again">✕</button></div><span id="said">Tap a picture to talk</span><button id="timerChip" hidden aria-label="The wait timer"></button><button id="gear" aria-label="Settings (hold)">⚙</button></div>
+<div id="partner" aria-hidden="true"><small id="ptWho"></small><div class="pt-line"><span class="pic" id="ptPic"></span><b id="ptText"></b></div><small id="ptAsk">Tap to answer</small><div id="ptAnswers"></div></div>
+<div id="hinge" aria-hidden="true"><i></i></div>
+<div id="banner"><div id="modelBtns"><button id="modelHint" aria-label="Hint: show him a picture without saying it">👆</button><button id="modelStop" aria-label="Stop modelling">✕</button></div><div id="sentBtns"><button id="sentSay" aria-label="Say the whole sentence">🔊</button><button id="sentClear" aria-label="Start the sentence again">✕</button></div><span id="said">Tap a picture to talk</span><button id="timerChip" hidden aria-label="The wait timer"></button><div id="reply" aria-live="polite"></div><button id="f2fBtn" aria-label="Face to face: lay the phone flat between you" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path class="them" d="M12 3.5h8.5a1.6 1.6 0 0 1 1.6 1.6v4.3a1.6 1.6 0 0 1-1.6 1.6H12a1.6 1.6 0 0 1-1.6-1.6V5.1A1.6 1.6 0 0 1 12 3.5zM19.6 3.5l2.5-2.6v2.6z"/><path class="me" d="M3.5 13h8.5a1.6 1.6 0 0 1 1.6 1.6v4.3a1.6 1.6 0 0 1-1.6 1.6H3.5a1.6 1.6 0 0 1-1.6-1.6v-4.3A1.6 1.6 0 0 1 3.5 13zM4.4 20.5l-2.5 2.6v-2.6z"/></svg></button><button id="gear" aria-label="Settings (hold)">⚙</button></div>
 <div id="core"></div>
 <div id="nav">
   <button class="arrow" id="prev" aria-label="Previous page"></button>
@@ -511,6 +578,10 @@ try { if (localStorage.getItem('ttd_fit') === 'cover') document.querySelector('m
   <div class="sheet">
     <h2>Settings</h2>
     <p class="hint">For caregivers: hold the ⚙ for 1 second to open.</p>
+    <h3 style="margin-top:12px">Setups</h3>
+    <p class="sub" style="margin:0 0 6px">Sets several options at once for a kind of phone. Each one shows what it will change first; nothing changes until you say so.</p>
+    <div class="setups" id="setups"></div>
+    <h3>Staff tools</h3>
     <div class="tools" id="tools">
       <button class="tool" id="toolTimer"><span>⏳</span><b id="toolTimerTxt">Wait timer</b></button>
       <button class="tool" id="toolNext"><span>➡️</span><b id="toolNextTxt">First, then</b></button>
@@ -545,6 +616,7 @@ try { if (localStorage.getItem('ttd_fit') === 'cover') document.querySelector('m
 
     <h3>Turning pages</h3>
     <label class="choice"><input type="checkbox" id="swipeOn"><span><strong>Swipe to change pages</strong> <small>The ◀ ▶ arrows always work too.</small></span></label>
+    <label class="choice"><input type="checkbox" id="allpgOn"><span><strong>All pages on one screen</strong> <small>Tapping the page name shows every page at once, under the top row, so Yes, No, Help and the rest still work. Off: the usual list.</small></span></label>
 
     <h3>Page stickers (QR and NFC)</h3>
     <p class="sub" style="margin:0 0 10px">A sticker by the fridge can open Food, one by the door Places. Scan a QR sticker from the page list (tap the page name, then 📷), or with the phone's camera. A sticker only turns the page; it never says anything by itself.</p>
@@ -625,6 +697,11 @@ try { if (localStorage.getItem('ttd_fit') === 'cover') document.querySelector('m
     <div id="updateStat" class="stat">Version: checking…</div>
     <button class="plain" id="checkUpdate">Check for updates now</button>
     <div id="clipStat" class="stat" hidden></div>
+    <h3>Face to face</h3>
+    <p class="sub" style="margin:0 0 8px">For a talk: tick the box below, then tap the two speech bubbles at the left end of the banner and lay the phone flat between him and the person he's talking with. The top part turns round to face them, shows his words big, and gives them four answers to tap. His pictures all stay in their places. Tap them again to go back.</p>
+    <div class="row"><label class="big" for="f2fVoice">Their answers are said in</label><select id="f2fVoice" style="font-size:16px;padding:8px;border-radius:10px"></select></div>
+    <label class="choice"><input type="checkbox" id="f2fShow"><span><strong>Show the Face to face button</strong> <small>Puts the two speech bubbles at the left end of the banner. Off unless ticked.</small></span></label>
+
     <div class="warn"><strong>Tip:</strong> on the phone or tablet, open this page in Chrome, then menu ⋮ → <strong>Add to Home screen</strong> (or <strong>Install app</strong>). It opens full screen like an app and keeps working with no internet.</div>
     <p class="sub">Pictures: <a href="https://github.com/microsoft/fluentui-emoji" target="_blank" rel="noopener">Fluent Emoji</a> © Microsoft, MIT licence. Voices: <a href="https://github.com/hexgrad/kokoro" target="_blank" rel="noopener">Kokoro</a>, Apache 2.0. ABC page words: wordfreq (CC BY-SA 4.0) and WordNet 3.0. QR stickers: QR Code Generator (MIT) and jsQR (Apache 2.0).</p>
 
@@ -1914,6 +1991,7 @@ function showPageInfo(){
   });
   if (dots.children.length > 18) dots.className = 'many';
   txt.appendChild(dots); titleBtn.appendChild(txt);
+  if (allPg()){ var ap = document.createElement('span'); ap.className = 'allpg'; titleBtn.appendChild(ap); }   /* a hint: tap for every page */
 
   var g = lockGroup(), pi = wrap(current - 1), ni = wrap(current + 1);
   if (g && g.length > 1){ var at = g.indexOf(current); pi = g[(at - 1 + g.length) % g.length]; ni = g[(at + 1) % g.length]; }
@@ -2216,7 +2294,23 @@ function openPicker(){
   c.className = 'pick close'; c.textContent = '✕ Close';
   c.addEventListener('click', function(){ picker.classList.remove('open'); });
   pickGrid.appendChild(c);
+  fitPicker();
   picker.classList.add('open');
+}
+/* With Settings → All pages on one screen: every page on one screen, under the top row, so Yes, No, Help and the rest
+   can still be tapped while it's open (2026-11-26: on his phone the list was two pictures wide and needed two screens of
+   scrolling; Tim: an option, "not by default"). With too many
+   pages to fit (Bigger pictures doubles them) it's the old scrolling list, over the whole screen. */
+function allPg(){ return store('ttd_allpg') === '1'; }          /* Settings → All pages on one screen (off unless chosen) */
+function fitPicker(){
+  if (!allPg()){ picker.classList.remove('fit'); picker.style.top = ''; return; }
+  var top = Math.round(coreEl.getBoundingClientRect().bottom), n = pickGrid.children.length, w = window.innerWidth;
+  var cols = w < 600 ? 3 : Math.max(3, Math.min(6, Math.floor((w - 16) / 170)));
+  var rows = Math.ceil(n / cols), h = window.innerHeight - top - 16 - 8 * (rows - 1);
+  var fit = h / rows >= 56;
+  picker.classList.toggle('fit', fit);
+  picker.style.top = fit ? top + 'px' : '';
+  pickGrid.style.setProperty('--pk-cols', cols); pickGrid.style.setProperty('--pk-rows', rows);
 }
 titleBtn.addEventListener('click', openPicker);
 picker.addEventListener('click', function(e){ if (e.target === picker) picker.classList.remove('open'); });
@@ -2366,8 +2460,8 @@ document.body.classList.toggle('room', ROOM);
 
 /* ---------------- settings (hold the gear) ---------------- */
 var gear = document.getElementById('gear'), panel = document.getElementById('panel'), holdT = null;
-function startHold(e){ e.preventDefault(); holdT = setTimeout(openSettings, 1000); }
-function endHold(){ clearTimeout(holdT); }
+function startHold(e){ e.preventDefault(); gear.classList.add('holding'); holdT = setTimeout(function(){ gear.classList.remove('holding'); openSettings(); }, 1000); }
+function endHold(){ clearTimeout(holdT); gear.classList.remove('holding'); }
 gear.addEventListener('touchstart', startHold, {passive: false});
 gear.addEventListener('touchend', endHold);
 gear.addEventListener('touchcancel', endHold);
@@ -2387,6 +2481,7 @@ function openSettings(){
   findBox.value = ''; buildFind('');
   showScreen();
   buildCounts(); showOwnStat(); buildLog(); showMineList();
+  showF2fSettings(); buildSetups();
   panel.classList.add('open');
 }
 var calmBox = document.getElementById('calmOn'), bigBox = document.getElementById('bigOn');
@@ -2670,6 +2765,9 @@ var vEl = document.getElementById('vol'), vV = document.getElementById('volVal')
 vEl.value = vol; vV.textContent = vol.toFixed(1);
 vEl.addEventListener('input', function(e){ vol = parseFloat(e.target.value); vV.textContent = vol.toFixed(1); store('ttd_vol', vol); });
 
+var allpgBox = document.getElementById('allpgOn');
+allpgBox.checked = allPg();
+allpgBox.addEventListener('change', function(){ store('ttd_allpg', allpgBox.checked ? '1' : '0'); showPageInfo(); });
 var swipeBox = document.getElementById('swipeOn');
 swipeBox.checked = swipeOn;
 swipeBox.addEventListener('change', function(){ swipeOn = swipeBox.checked; store('ttd_swipe', swipeOn ? '1' : '0'); });
@@ -2758,7 +2856,7 @@ function openSentenceBig(parts, whole){
   openShow(e.shown || e.text, e, parts.length > 1 ? {parts: parts, whole: whole} : null);
 }
 banner.addEventListener('click', function(e){
-  if (!BIG || e.target === gear || said.textContent === HINT) return;
+  if (!BIG || e.target === gear || said.textContent === HINT || f2fBtn.contains(e.target)) return;   /* Face to face is its own button */
   if (SENT && sentence.length){ openSentenceBig(sentence.slice(), sentSaid); return; }   /* what was just said; the switch shows the rest */
   openShow(said.textContent);
 });
@@ -4803,6 +4901,176 @@ function turned(dir){
   }
 }
 window.FX = {count: function(){ return parts.length; }, running: function(){ return fxOn; }};   /* for the tests */
+
+/* ============================================================
+   FACE TO FACE (2026-11-26; see the CSS note above #partner)
+   The speech-bubbles button turns the top part of the screen round to face the
+   person he's talking with: his last words big, and the four answers in
+   library.js "partner". An answer is said in a different voice from the
+   board's (Settings → Face to face) and shown in the banner on his side,
+   so he can tell it's them talking. Off unless someone taps it; it isn't
+   remembered, so the board always opens the way he knows it.
+   ============================================================ */
+var F2F = false, f2fBtn = document.getElementById('f2fBtn'), partnerEl = document.getElementById('partner');
+var ptText = document.getElementById('ptText'), ptPic = document.getElementById('ptPic'), replyEl = document.getElementById('reply');
+var PARTNER = (LIB.partner || []).filter(function(t){ return !blank(t); }), replyT = null, sentT2 = null;
+var meName = (function(){
+  var c = LIB.core.filter(function(t){ return t.card; })[0], m = c && /I'm ([A-Z][\w-]*)/.exec(c.label || '');
+  return m ? m[1] : '';
+})();
+document.getElementById('ptWho').textContent = meName ? meName + ' says' : 'Says';
+if (store('ttd_f2f_btn') === '1') document.body.classList.add('f2f-show');      /* only if staff chose it in Settings */
+
+/* Their voice: the one chosen in Settings, or one that sounds different from his (a woman's for a man's voice). */
+function partnerVoice(){
+  var v = store('ttd_f2f_voice');
+  if (v && (v === 'device' || ASSETS.clips[v])) return v;
+  if (voiceId === 'device') return 'device';
+  var want = {michael: 1, fenrir: 1, george: 1}[voiceId] ? 'heart' : 'michael';
+  return ASSETS.clips[want] ? want : voiceId;
+}
+function partnerClip(t){ var v = partnerVoice(), set = v !== 'device' && ASSETS.clips[v]; return set && set[t.say || t.label] || null; }
+function hello(){
+  ptText.className = 'hello'; ptPic.innerHTML = '';
+  ptText.textContent = meName ? 'Hi! ' + meName + ' talks with this phone. His words show up here.' : 'Hi! I talk with this phone. My words show up here.';
+}
+/* Whatever he says (a picture, a sentence, typed words, a Time answer) shows on their side too, and stays up until
+   he says something new. */
+function mirror(){
+  var t = said.textContent;
+  if (!F2F || !t || t === HINT) return;
+  banner.classList.remove('replying');
+  ptText.className = ''; ptText.textContent = t;
+  ptPic.innerHTML = '';
+  if (litItem && (litItem.icon || litItem.img)){ var pc = picture(litItem); while (pc.firstChild) ptPic.appendChild(pc.firstChild); }
+}
+new MutationObserver(mirror).observe(said, {childList: true, characterData: true, subtree: true});
+
+function buildAnswers(){
+  var box = document.getElementById('ptAnswers'); box.innerHTML = '';
+  PARTNER.forEach(function(t){
+    var b = document.createElement('button'), c = t.color || '#3D6FE0';
+    b.className = 'pt-ans';
+    b.style.setProperty('--a', c); b.style.setProperty('--af', luminance(c) > 0.45 ? '#14213D' : '#fff');
+    b.appendChild(picture(t));
+    var l = document.createElement('span'); l.textContent = t.label; b.appendChild(l);
+    b.addEventListener('click', function(){ answer(t, b); });
+    box.appendChild(b);
+  });
+}
+function answer(t, b){
+  var text = t.say || t.label, src = partnerClip(t);
+  if (src) say('p-' + slug(t.label), text, {_clip: src, label: t.label});
+  else if (partnerVoice() === 'device'){ stopTalking(); speakDevice(text); }
+  else say('p-' + slug(t.label), text, null);                 /* no recording in their voice: the board's voice */
+  replyEl.innerHTML = ''; replyEl.appendChild(picture(t));
+  var sp = document.createElement('span'); sp.textContent = text; replyEl.appendChild(sp);
+  banner.classList.add('replying');
+  clearTimeout(replyT); replyT = setTimeout(function(){ banner.classList.remove('replying'); }, 8000);
+  var all = document.querySelectorAll('.pt-ans');
+  for (var i = 0; i < all.length; i++) all[i].classList.remove('sent');
+  if (b){ b.classList.add('sent'); clearTimeout(sentT2); sentT2 = setTimeout(function(){ b.classList.remove('sent'); }, 1500); }
+  if (AWAKE) keepAwake(AWAKE_FOR);
+}
+function setF2f(on){
+  F2F = !!on; settle();
+  document.body.classList.toggle('f2f', F2F);
+  f2fBtn.setAttribute('aria-pressed', F2F ? 'true' : 'false');
+  partnerEl.setAttribute('aria-hidden', F2F ? 'false' : 'true');
+  banner.classList.remove('replying');
+  if (F2F){
+    if (!document.getElementById('ptAnswers').children.length) buildAnswers();
+    hello(); if (said.textContent !== HINT) mirror();
+    PARTNER.forEach(function(t){ var c = partnerClip(t); if (c){ prepare(c); getAudio(c); } });
+  }
+  showPageInfo();
+  window.dispatchEvent(new Event('resize'));        /* the board is smaller (or back to full size): fit the words again */
+  if (document.body.classList.contains('scan')) scanCatch.style.top = banner.getBoundingClientRect().bottom + 'px';   /* scanning: their half stays tappable */
+  if (picker.classList.contains('open')) fitPicker();
+}
+f2fBtn.addEventListener('click', function(){ setF2f(!F2F); });
+replyEl.addEventListener('click', function(e){ e.stopPropagation(); clearTimeout(replyT); banner.classList.remove('replying'); });   /* tap: back to his words */
+
+var f2fVoiceSel = document.getElementById('f2fVoice'), f2fShowBox = document.getElementById('f2fShow');
+function showF2fSettings(){
+  f2fVoiceSel.innerHTML = '';
+  function opt(v, t){ var o = document.createElement('option'); o.value = v; o.textContent = t; f2fVoiceSel.appendChild(o); }
+  opt('', 'A voice that sounds different from his');
+  ASSETS.voices.forEach(function(v){ opt(v.id, v.name + ' (' + v.desc + ')'); });
+  opt('device', "The phone's own voice");
+  f2fVoiceSel.value = store('ttd_f2f_voice') || '';
+  f2fShowBox.checked = store('ttd_f2f_btn') === '1';
+}
+f2fVoiceSel.addEventListener('change', function(){
+  store('ttd_f2f_voice', f2fVoiceSel.value);
+  if (PARTNER[0]){ var t = PARTNER[0], c = partnerClip(t); if (c) say('p-sample', t.say || t.label, {_clip: c, label: t.label}); else { stopTalking(); speakDevice(t.say || t.label); } }
+});
+f2fShowBox.addEventListener('change', function(){
+  store('ttd_f2f_btn', f2fShowBox.checked ? '1' : '0');
+  document.body.classList.toggle('f2f-show', f2fShowBox.checked);
+  if (!f2fShowBox.checked && F2F) setF2f(false);
+});
+
+/* ============================================================
+   SETUPS (2026-11-26): the options for a kind of phone, in one go.
+   Each one lists what it will change (and what's already that way)
+   before anything changes. They only use the switches already in
+   Settings, through their own handlers, so everything else (voice,
+   pages, pictures, recordings) is left alone.
+   ============================================================ */
+var SETUPS = [
+  {id: 'own', icon: '📱', name: meName ? meName + "'s phone" : 'Their own phone', set: [
+    ['countOn', true, 'Count taps on this phone'], ['logOn', true, 'Keep a list of what was said today'],
+    ['healthOn', true, 'Chime for health words'], ['awakeOn', true, 'Keep the screen on'], ['sentOn', false, 'Build sentences']]},
+  {id: 'staff', icon: '🧑‍🏫', name: 'A staff phone', set: [
+    ['countOn', false, 'Count taps on this phone (staff taps are not his)'], ['logOn', false, 'Keep a list of what was said today'],
+    ['bigOn', true, 'Tap the words to show them big'], ['sentOn', true, 'Build sentences'], ['awakeOn', false, 'Keep the screen on']]},
+  {id: 'new', icon: '🌱', name: 'Someone new', set: [
+    ['sixOn', true, 'Bigger pictures (6 on a screen)'], ['calmOn', true, 'Calm answers'], ['fx:little', true, 'Fun effects: A little'],
+    ['sentOn', false, 'Build sentences'], ['countOn', true, 'Count taps on this phone']]}
+];
+function setupNow(id){
+  if (id.indexOf('fx:') === 0) return FX_LEVEL === id.slice(3);
+  var b = document.getElementById(id); return !!(b && b.checked);
+}
+function buildSetups(){
+  var box = document.getElementById('setups'); box.innerHTML = '';
+  var old = document.getElementById('setupAsk'); if (old) old.remove();
+  SETUPS.forEach(function(su){
+    var b = document.createElement('button'); b.type = 'button';
+    b.innerHTML = '<span></span>'; b.firstChild.textContent = su.icon; b.appendChild(document.createTextNode(su.name));
+    b.addEventListener('click', function(){ askSetup(su); });
+    box.appendChild(b);
+  });
+}
+function askSetup(su){
+  var old = document.getElementById('setupAsk'); if (old) old.remove();
+  var ask = document.createElement('div'); ask.id = 'setupAsk'; ask.className = 'warn';
+  var h = document.createElement('strong'); h.textContent = su.icon + ' ' + su.name + ': this will set'; ask.appendChild(h);
+  var ul = document.createElement('ul'); ul.className = 'setup-list';
+  su.set.forEach(function(x){
+    var li = document.createElement('li'), same = setupNow(x[0]) === x[1];
+    li.textContent = x[2] + (x[0].indexOf('fx:') === 0 ? '' : x[1] ? ': on' : ': off') + (same ? ' (already)' : '');
+    if (same) li.className = 'same';
+    ul.appendChild(li);
+  });
+  ask.appendChild(ul);
+  var row = document.createElement('div'); row.className = 'btnrow';
+  var yes = document.createElement('button'); yes.className = 'plain'; yes.textContent = 'Use this setup';
+  var no = document.createElement('button'); no.className = 'plain'; no.textContent = 'Cancel';
+  yes.addEventListener('click', function(){ useSetup(su); ask.remove(); toast(su.name + ': done'); });
+  no.addEventListener('click', function(){ ask.remove(); });
+  row.appendChild(yes); row.appendChild(no); ask.appendChild(row);
+  document.getElementById('setups').insertAdjacentElement('afterend', ask);
+}
+function useSetup(su){
+  su.set.forEach(function(x){
+    if (setupNow(x[0]) === x[1]) return;
+    if (x[0].indexOf('fx:') === 0){ setFxLevel(x[0].slice(3)); store('ttd_fx', FX_LEVEL); showFxLevel(); return; }
+    var b = document.getElementById(x[0]); if (!b) return;
+    b.checked = x[1]; b.dispatchEvent(new Event('change'));
+  });
+}
 
 loadOwn();                        /* this phone's own photos and recordings */
 

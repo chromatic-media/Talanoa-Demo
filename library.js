@@ -75,6 +75,12 @@
    that file); any other word is spelled out, letter by letter, in
    that same voice.
 
+   PARTNER = the answers the other person can tap in Face to face (the
+           phone lying flat between two people; the top part is turned
+           round to face them). Each is said in a different voice from
+           the board's (Settings → Face to face) and shown on his side.
+           Same keys as a tile; "color" is the button's colour.
+
    After changing words, run  python3 tools/build.py  (or let GitHub
    run it: it does whenever library.js changes) so the natural voices
    and pictures are made for the new tiles. Until then a new tile
@@ -394,5 +400,12 @@ window.TT_LIBRARY = {
     ]},
 
     {"name": "ABC", "icon": "🔤", "color": "#3A3A3A", "keyboard": true, "tiles": []}
+  ],
+
+  "partner": [
+    {"icon": "👍", "label": "OK!",          "say": "Okay!",                 "color": "#1E9E5A", "sound": "Oh, kay!"},
+    {"icon": "⏳", "label": "One minute",   "say": "One minute, please.",   "color": "#E4A11B", "sound": "One minute please."},
+    {"icon": "👉", "label": "Show me",      "say": "Show me.",              "color": "#3D6FE0"},
+    {"icon": "🔁", "label": "Say it again", "say": "Can you say it again?", "color": "#FFFFFF"}
   ]
 };
