@@ -6,7 +6,8 @@
 <script>
 /* Fitting above Android's navigation bar: see "ANDROID'S NAVIGATION BAR" below.
    If this phone was found to need it, ask for it before anything is drawn. */
-try { if (localStorage.getItem('ttd_fit') === 'cover'){ document.querySelector('meta[name=viewport]').content += ', viewport-fit=cover';
+try { var tt_av = +localStorage.getItem('ttd_android');                   /* Android 14 or older never gets it (see below) */
+  if (localStorage.getItem('ttd_fit') === 'cover' && !(tt_av > 0 && tt_av < 15)){ document.querySelector('meta[name=viewport]').content += ', viewport-fit=cover';
   var tt_inset = parseFloat(localStorage.getItem('ttd_fit_inset'));      /* the bar's height last time Chrome told us */
   if (tt_inset > 0) document.documentElement.style.setProperty('--navfix', tt_inset + 'px'); } } catch(e){}
 </script>
@@ -4798,11 +4799,38 @@ function bottomInset(){ return parseFloat(getComputedStyle(document.getElementBy
 function afterFrames(n, fn){ requestAnimationFrame(function(){ if (n > 1) afterFrames(n - 1, fn); else fn(); }); }
 function fitDone(mode, inset){
   try {
-    localStorage.setItem('ttd_fit', mode); localStorage.setItem('ttd_fit_size', innerWidth + 'x' + innerHeight);
+    localStorage.setItem('ttd_fit', mode);
     if (inset > 0) localStorage.setItem('ttd_fit_inset', String(Math.round(inset)));
   } catch(e){}
   setNavfix(mode === 'cover' ? savedInset() : 0);
-  fitLabels(coreEl); if (gridEl) fitLabels(gridEl);
+  afterFrames(3, function(){                     /* the size once the page has settled (switching cover off takes a frame or two) */
+    try { localStorage.setItem('ttd_fit_size', innerWidth + 'x' + innerHeight); } catch(e){}
+    fitLabels(coreEl); if (gridEl) fitLabels(gridEl);
+  });
+}
+/* Which Android this is (0 = can't tell). Chrome's user agent always says "Android 10; K" now, so the real number
+   comes from its client hints; Samsung Internet and others still put it in the user agent. */
+function androidVersion(cb){
+  var ua = navigator.userAgent, m = ua.match(/Android (\d+)/), frozen = /Android 10; K\)/.test(ua);
+  if (m && !frozen){ cb(+m[1]); return; }
+  var d = navigator.userAgentData, done = false;
+  function answer(v){ if (!done){ done = true; cb(v); } }
+  if (!d || !d.getHighEntropyValues){ answer(0); return; }
+  setTimeout(function(){ answer(0); }, 1500);
+  d.getHighEntropyValues(['platform', 'platformVersion']).then(function(h){
+    answer(h && h.platform === 'Android' ? parseInt(h.platformVersion, 10) || 0 : 0);
+  }, function(){ answer(0); });
+}
+/* Android 14 and older keep an installed app above the bar by themselves, and trying cover there is what pushes
+   the page under it (2026-11-27, a Galaxy A70 on Android 11, fresh install: bottom row under the bar). So on those
+   phones cover is never tried, and anything left over from before is undone. */
+var oldAndroid = false;
+function plainForGood(){
+  oldAndroid = true;
+  if (coverOn()) setCover(false);
+  setNavfix(0);
+  try { localStorage.removeItem('ttd_fit_inset'); localStorage.setItem('ttd_fit_quiet', '0'); } catch(e){}
+  fitDone('none');
 }
 function androidApp(){
   return matchMedia('(display-mode: standalone), (display-mode: fullscreen)').matches && /Android/i.test(navigator.userAgent);
@@ -4811,7 +4839,7 @@ function androidApp(){
    a restart it can say 0 for a moment (2026-11-26, seen on a Pixel: the bottom row sat under the bar until the app
    was closed and opened again); a phone never fitted before gets one quick look, as before. Still 0 at the end: a phone that has shown its bar before stays fitted by the
    remembered height; a phone that never has (some report 0 even with a bar, 2026-09-26) goes back to the plain viewport. */
-var fitBusy = false;
+var fitBusy = false, androidV = null, fitChecked = false;
 function probeCover(){
   fitBusy = true;
   var fittedBefore = store('ttd_fit') === 'cover' || savedInset() > 0;   /* only these can be caught by a "0 for a moment" */
@@ -4831,7 +4859,15 @@ function probeCover(){
 function fitNavBar(){
   if (fitBusy || !androidApp()) return;
   if (document.visibilityState === 'hidden') return;     /* updated or reopened out of sight: decide when he can see it (below) */
-  var mode = store('ttd_fit'), size = store('ttd_fit_size');
+  if (androidV === null){                                /* first find out which Android this is */
+    fitBusy = true;
+    androidVersion(function(v){ fitBusy = false; androidV = v; if (v) store('ttd_android', String(v)); fitNavBar(); });
+    return;
+  }
+  if (androidV > 0 && androidV < 15){ if (!oldAndroid) plainForGood(); return; }
+  var mode = store('ttd_fit'), size = store('ttd_fit_size'), first = !fitChecked;
+  fitChecked = true;
+  if (!first && mode !== 'cover' && !savedInset()) return;   /* the later checks are only for phones that need the fit */
   if (mode === 'none' && size === innerWidth + 'x' + innerHeight && !savedInset()) return;   /* checked before: nothing to do */
   if (mode === 'cover' && coverOn() && bottomInset() > 0){ fitDone('cover', bottomInset()); return; }
   probeCover();
